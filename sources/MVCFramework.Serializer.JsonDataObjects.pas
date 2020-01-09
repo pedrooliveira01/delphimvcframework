@@ -87,7 +87,8 @@ type
       const AType: TMVCSerializationType; const AIgnoredAttributes: TMVCIgnoredList);
     procedure JsonDataValueToAttribute(const AJsonObject: TJDOJsonObject; const AName: string; var AValue: TValue;
       const AType: TMVCSerializationType; const AIgnored: TMVCIgnoredList;
-      const ACustomAttributes: TArray<TCustomAttribute>);
+      const ACustomAttributes: TArray<TCustomAttribute>;
+      ATypeKind:TTypeKind=tkUnknown);
     procedure JsonArrayToList(const AJsonArray: TJDOJsonArray; const AList: IMVCList; const AClazz: TClass;
       const AType: TMVCSerializationType; const AIgnoredAttributes: TMVCIgnoredList);
     procedure DataSetToJsonObject(const ADataSet: TDataSet; const AJsonObject: TJDOJsonObject;
@@ -234,7 +235,9 @@ begin
       AJsonObject.L[AName] := AValue.AsInt64;
 
     tkChar, tkString, tkWChar, tkLString, tkWString, tkUString:
-      AJsonObject.S[AName] := AValue.AsString;
+        if AValue.AsString = '$null' then
+           AJsonObject.Remove(AName) else
+           AJsonObject.S[AName] := AValue.AsString;
 
     tkFloat:
       begin
@@ -833,7 +836,8 @@ end;
 
 procedure TMVCJsonDataObjectsSerializer.JsonDataValueToAttribute(const AJsonObject: TJDOJsonObject; const AName: string;
   var AValue: TValue; const AType: TMVCSerializationType; const AIgnored: TMVCIgnoredList;
-  const ACustomAttributes: TArray<TCustomAttribute>);
+  const ACustomAttributes: TArray<TCustomAttribute>;
+  ATypeKind:TTypeKind);
 var
   ChildObject: TObject;
   ChildList: IMVCList;
@@ -841,6 +845,7 @@ var
   LEnumAsAttr: MVCEnumSerializationTypeAttribute;
   LEnumPrefix: string;
   LClazz: TClass;
+  lTyp : TJsonDataType;
 begin
   if GetTypeSerializers.ContainsKey(AValue.TypeInfo) then
   begin
@@ -862,6 +867,30 @@ begin
     end;
     Exit;
   end;
+
+  if (AJsonObject[AName].Typ<>jdtNone)then
+  Begin
+    case ATypeKind of
+      tkInteger    : lTyp := jdtInt;
+      tkChar       : lTyp := jdtString;
+      tkFloat      : lTyp := jdtFloat;
+      tkString     : lTyp := jdtString;
+      tkWChar      : lTyp := jdtString;
+      tkLString    : lTyp := jdtString;
+      tkWString    : lTyp := jdtString;
+      tkArray      : lTyp := jdtArray;
+      tkInt64      : lTyp := jdtLong;
+      tkDynArray   : lTyp := jdtArray;
+      tkUString    : lTyp := jdtString;
+    else
+      lTyp := AJsonObject[AName].Typ;
+    end;
+  End
+  else
+    lTyp := AJsonObject[AName].Typ;
+
+  if AJsonObject[AName].isNull then
+     lTyp := jdtNone;
 
   case AJsonObject[AName].Typ of
     jdtNone:
@@ -913,7 +942,22 @@ begin
       end;
 
     jdtFloat:
+    Begin
+      if (AValue.TypeInfo = System.TypeInfo(TDate)) then
+        AValue := TValue.From<TDate>(ISODateToDate(AJsonObject[AName].Value))
+
+      else
+        if (AValue.TypeInfo = System.TypeInfo(TDateTime)) then
+        AValue := TValue.From<TDateTime>(ISOTimeStampToDateTime(AJsonObject[AName].Value))
+
+      else
+        if (AValue.TypeInfo = System.TypeInfo(TTime)) then
+        AValue := TValue.From<TTime>(ISOTimeToTime(AJsonObject[AName].Value))
+
+      else
+
       AValue := TValue.From<Double>(AJsonObject[AName].FloatValue);
+    End;
 
     jdtDateTime:
       AValue := TValue.From<TDateTime>(AJsonObject[AName].DateTimeValue);
@@ -1127,7 +1171,8 @@ begin
               AttributeValue := Prop.GetValue(AObject);
               lKeyName := TMVCSerializerHelper.GetKeyName(Prop, ObjType);
               JsonDataValueToAttribute(AJsonObject, lKeyName, AttributeValue, AType, AIgnoredAttributes,
-                Prop.GetAttributes);
+                Prop.GetAttributes,
+                Prop.PropertyType.TypeKind);
               if (not AttributeValue.IsEmpty) and Prop.IsWritable then
                 Prop.SetValue(AObject, AttributeValue);
             end;

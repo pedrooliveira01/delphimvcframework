@@ -6553,7 +6553,7 @@ begin
     if Idx = 0 then
       Break;
     Ch := EndP[Idx];
-    if (Ch = '"') or (Ch = #10) or (Ch = #13) then
+    if (Ch = '"') {or (Ch = #10) or (Ch = #13)} then
       Break;
     Inc(Idx);
     if Ch <> '\' then
@@ -6582,8 +6582,8 @@ begin
   FLook.Kind := jtkString;
   FText := EndP;
 
-  if Ch in [#10, #13] then
-    TJsonReader.InvalidStringCharacterError(Self);
+  {if Ch in [#10, #13] then
+    TJsonReader.InvalidStringCharacterError(Self); }
 end;
 
 {$IFDEF ASMSUPPORT}

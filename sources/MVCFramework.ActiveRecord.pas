@@ -223,8 +223,6 @@ type
 
     function SQLGenerator: TMVCSQLGenerator;
 
-    function InternalCount(const RQL: String): int64;
-    function InternalSelectRQL(const RQL: string; const MaxRecordCount: Integer): TMVCActiveRecordList;
   public
     constructor Create(aLazyLoadConnection: Boolean); overload;
     { cannot be virtual! }
@@ -260,11 +258,10 @@ type
     class function DeleteAll(const aClass: TMVCActiveRecordClass): int64; overload;
     function Count(const RQL: String = ''): int64; overload;
     class function Count(const aClass: TMVCActiveRecordClass; const RQL: String = ''): int64; overload;
+    class function Count<T: TMVCActiveRecord>: int64; overload;
     class function SelectDataSet(const SQL: string; const Params: array of Variant): TDataSet;
     class function CurrentConnection: TFDConnection;
-  end;
-
-  TMVCActiveRecordHelper = class helper for TMVCActiveRecord
+    // TMVCActiveRecordHelper removido daqui
     class function GetByPK<T: TMVCActiveRecord, constructor>(const aValue: int64;
       const RaiseExceptionIfNotFound: Boolean = True): T; overload;
     class function Select<T: TMVCActiveRecord, constructor>(const SQL: string; const Params: array of Variant;
@@ -550,9 +547,7 @@ var
   lKeyName: string;
   lConnHolder: TConnHolder;
 begin
-{$IF not Defined(SeattleOrBetter)}
   Result := nil;
-{$ENDIF}
   lKeyName := GetKeyName(aName.ToLower);
   fMREW.BeginRead;
   try
@@ -568,9 +563,7 @@ function TMVCConnectionsRepository.GetCurrent: TFDConnection;
 var
   lName: string;
 begin
-{$IF not Defined(SeattleOrBetter)}
   Result := nil;
-{$ENDIF}
   fMREW.BeginRead;
   try
     if fCurrentConnectionsByThread.TryGetValue(TThread.CurrentThread.ThreadID, lName) then
@@ -919,28 +912,6 @@ begin
   OnAfterInsertOrUpdate;
 end;
 
-function TMVCActiveRecord.InternalCount(const RQL: String): int64;
-var
-  lSQL: string;
-begin
-  lSQL := Self.SQLGenerator.CreateSelectCount(fTableName);
-  if not RQL.IsEmpty then
-  begin
-    lSQL := lSQL + fSQLGenerator.CreateSQLWhereByRQL(RQL, GetMapping, false);
-  end;
-  Result := GetScalar(lSQL, []);
-end;
-
-function TMVCActiveRecord.InternalSelectRQL(const RQL: string;
-  const MaxRecordCount: Integer): TMVCActiveRecordList;
-var
-  lSQL: string;
-begin
-  lSQL := SQLGenerator.CreateSQLWhereByRQL(RQL, GetMapping);
-  LogD(Format('RQL [%s] => SQL [%s]', [RQL, lSQL]));
-  Result := Where(TMVCActiveRecordClass(Self.ClassType), lSQL, []);
-end;
-
 constructor TMVCActiveRecord.Create(aLazyLoadConnection: Boolean);
 begin
   inherited Create;
@@ -958,7 +929,7 @@ end;
 
 function TMVCActiveRecord.GenerateSelectSQL: string;
 begin
-  Result := SQLGenerator.CreateSelectSQL(fTableName, fMap, fPrimaryKeyFieldName, fPrimaryKeyOptions);
+  Result := SQLGenerator.CreateSelectSQL(fTableName, fMapNonTransientFields{fMap}, fPrimaryKeyFieldName, fPrimaryKeyOptions);
 end;
 
 function TMVCActiveRecord.GetBackEnd: string;
@@ -988,7 +959,7 @@ begin
   end;
 end;
 
-class function TMVCActiveRecordHelper.GetByPK<T>(const aValue: int64;
+class function TMVCActiveRecord.GetByPK<T>(const aValue: int64;
   const RaiseExceptionIfNotFound: Boolean = True): T;
 var
   lActiveRecord: TMVCActiveRecord;
@@ -1009,7 +980,7 @@ begin
   end;
 end;
 
-class function TMVCActiveRecordHelper.GetFirstByWhere<T>(const SQLWhere: string; const Params: array of Variant;
+class function TMVCActiveRecord.GetFirstByWhere<T>(const SQLWhere: string; const Params: array of Variant;
   const RaiseExceptionIfNotFound: Boolean): T;
 var
   lList: TObjectList<T>;
@@ -1022,7 +993,7 @@ begin
         raise EMVCActiveRecord.Create('Got 0 rows');
       Exit(nil);
     end;
-    Result := lList.ExtractAt(0);
+    Result := lList.First;//Result := lList.ExtractAt(0);
   finally
     lList.Free;
   end;
@@ -1058,7 +1029,7 @@ begin
   Result := fMapping;
 end;
 
-class function TMVCActiveRecordHelper.GetOneByWhere<T>(const SQLWhere: string; const Params: array of Variant;
+class function TMVCActiveRecord.GetOneByWhere<T>(const SQLWhere: string; const Params: array of Variant;
   const RaiseExceptionIfNotFound: Boolean): T;
 begin
   Result := GetFirstByWhere<T>(SQLWhere, Params, false);
@@ -1116,20 +1087,30 @@ var
 begin
   lAR := aClass.Create;
   try
-    // Up to 10.1 BErlin, here the compiler try to call the Count<T> introduced by the class helper
-    // Instead of the Count() which exists in "TMVCActiveRecord"
-    Result := lAR.InternalCount(RQL);
+    Result := lAR.Count(RQL);
   finally
     lAR.Free;
   end;
 end;
 
 function TMVCActiveRecord.Count(const RQL: String = ''): int64;
+var
+  lSQL: string;
 begin
-  Result := InternalCount(RQL);
+  lSQL := Self.SQLGenerator.CreateSelectCount(fTableName);
+  if not RQL.IsEmpty then
+  begin
+    lSQL := lSQL + fSQLGenerator.CreateSQLWhereByRQL(RQL, GetMapping, false);
+  end;
+  Result := GetScalar(lSQL, []);
 end;
 
-class function TMVCActiveRecordHelper.Count<T>(const RQL: String = ''): int64;
+class function TMVCActiveRecord.Count<T>: int64;
+begin
+  Result := Count<T>('');
+end;
+
+class function TMVCActiveRecord.Count<T>(const RQL: String = ''): int64;
 begin
   Result := TMVCActiveRecord.Count(TMVCActiveRecordClass(T), RQL);
 end;
@@ -2090,7 +2071,7 @@ begin
 
 end;
 
-class function TMVCActiveRecordHelper.Select<T>(const SQL: string; const Params: array of Variant;
+class function TMVCActiveRecord.Select<T>(const SQL: string; const Params: array of Variant;
   const Options: TMVCActiveRecordLoadOptions): TObjectList<T>;
 var
   lDataSet: TDataSet;
@@ -2123,11 +2104,15 @@ begin
 end;
 
 function TMVCActiveRecord.SelectRQL(const RQL: string; const MaxRecordCount: Integer): TMVCActiveRecordList;
+var
+  lSQL: string;
 begin
-  Result := InternalSelectRQL(RQL, MaxRecordCount);
+  lSQL := SQLGenerator.CreateSQLWhereByRQL(RQL, GetMapping);
+  LogD(Format('RQL [%s] => SQL [%s]', [RQL, lSQL]));
+  Result := Where(TMVCActiveRecordClass(Self.ClassType), lSQL, []);
 end;
 
-class function TMVCActiveRecordHelper.SelectRQL<T>(const RQL: string; const MaxRecordCount: Integer): TObjectList<T>;
+class function TMVCActiveRecord.SelectRQL<T>(const RQL: string; const MaxRecordCount: Integer): TObjectList<T>;
 var
   lAR: TMVCActiveRecord;
   lSQL: string;
@@ -2151,7 +2136,7 @@ var
 begin
   lAR := aClass.Create(True);
   try
-    Result := lAR.InternalSelectRQL(RQL, MaxRecordCount);
+    Result := lAR.SelectRQL(RQL, MaxRecordCount);
   finally
     lAR.Free;
   end;
@@ -2290,7 +2275,7 @@ begin
   end;
 end;
 
-class function TMVCActiveRecordHelper.All<T>: TObjectList<T>;
+class function TMVCActiveRecord.All<T>: TObjectList<T>;
 var
   lAR: TMVCActiveRecord;
 begin
@@ -2321,7 +2306,7 @@ begin
   end;
 end;
 
-class function TMVCActiveRecordHelper.Where<T>(const SQLWhere: string; const Params: array of Variant): TObjectList<T>;
+class function TMVCActiveRecord.Where<T>(const SQLWhere: string; const Params: array of Variant): TObjectList<T>;
 var
   lAR: TMVCActiveRecord;
 begin
