@@ -918,10 +918,10 @@ begin
   fConn := nil;
   SetLength(fMapping, 0);
   { TODO -oDanieleT -cGeneral : Consider lazyconnection }
-   if not Connect then
-   begin
-     SelfConnection;
-   end;
+  if Connect then
+  begin
+    SelfConnection;
+  end;
   fMap := TDictionary<TRttiField, string>.Create;
   fMapNonTransientFields := TDictionary<TRttiField, string>.Create;
   InitTableInfo;
@@ -2241,7 +2241,7 @@ var
 begin
   Result := 'Table Name: ' + fTableName;
   for keyvalue in fMap do
-    Result := Result + sLineBreak + #9 + copy(keyvalue.Key.Name,2,keyvalue.Key.Name.length) + ': '+ keyvalue.Key.fieldtype.name+' ( ' + keyvalue.Value + ' )';
+    Result := Result + sLineBreak + #9 + lowercase(copy(keyvalue.Key.Name,2,keyvalue.Key.Name.length)) + ': '+ keyvalue.Key.fieldtype.name+' ( ' + keyvalue.Value + ' )';
 end;
 
 procedure TMVCActiveRecord.Update;
