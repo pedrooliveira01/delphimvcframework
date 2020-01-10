@@ -224,7 +224,7 @@ type
     function SQLGenerator: TMVCSQLGenerator;
 
   public
-    constructor Create(aLazyLoadConnection: Boolean); overload;
+    constructor Create(aLazyLoadConnection: Boolean; Connect:Boolean=True); overload;
     { cannot be virtual! }
     constructor Create; overload; virtual;
     destructor Destroy; override;
@@ -912,16 +912,16 @@ begin
   OnAfterInsertOrUpdate;
 end;
 
-constructor TMVCActiveRecord.Create(aLazyLoadConnection: Boolean);
+constructor TMVCActiveRecord.Create(aLazyLoadConnection: Boolean; Connect:Boolean);
 begin
   inherited Create;
   fConn := nil;
   SetLength(fMapping, 0);
   { TODO -oDanieleT -cGeneral : Consider lazyconnection }
-  // if not aLazyLoadConnection then
-  // begin
-  SelfConnection;
-  // end;
+   if not Connect then
+   begin
+     SelfConnection;
+   end;
   fMap := TDictionary<TRttiField, string>.Create;
   fMapNonTransientFields := TDictionary<TRttiField, string>.Create;
   InitTableInfo;
@@ -2241,7 +2241,7 @@ var
 begin
   Result := 'Table Name: ' + fTableName;
   for keyvalue in fMap do
-    Result := Result + sLineBreak + #9 + keyvalue.Key.Name + ' = ' + keyvalue.Value;
+    Result := Result + sLineBreak + #9 + copy(keyvalue.Key.Name,2,keyvalue.Key.Name.length) + ': '+ keyvalue.Key.fieldtype.name+' ( ' + keyvalue.Value + ' )';
 end;
 
 procedure TMVCActiveRecord.Update;
