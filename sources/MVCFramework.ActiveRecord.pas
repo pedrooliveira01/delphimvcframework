@@ -2241,7 +2241,8 @@ var
 begin
   Result := 'Table Name: ' + fTableName;
 
-  Result := Result + sLineBreak + #9 + lowercase(copy(fPrimaryKey.Name,2,fPrimaryKey.Name.length)) + ': '+ fPrimaryKey.fieldtype.name+' ( ' + fPrimaryKeyFieldName + ' )';
+  if Assigned(fPrimaryKey) then
+     Result := Result + sLineBreak + #9 + lowercase(copy(fPrimaryKey.Name,2,fPrimaryKey.Name.length)) + ': '+ fPrimaryKey.fieldtype.name+' ( ' + fPrimaryKeyFieldName + ' )';
   for keyvalue in fMap do
     Result := Result + sLineBreak + #9 + lowercase(copy(keyvalue.Key.Name,2,keyvalue.Key.Name.length)) + ': '+ keyvalue.Key.fieldtype.name+' ( ' + keyvalue.Value + ' )';
 end;
