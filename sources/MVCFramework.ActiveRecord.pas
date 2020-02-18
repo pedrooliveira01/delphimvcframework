@@ -511,7 +511,7 @@ begin
     lConnHolder.OwnsConnection := aOwns;
     fConnectionsDict.Add(lConnKeyName, lConnHolder);
     // raise exception on duplicates
-    if (lName = 'default') and (not fCurrentConnectionsByThread.ContainsKey(TThread.CurrentThread.ThreadID)) then
+    if {(lName = 'default') and} (not fCurrentConnectionsByThread.ContainsKey(TThread.CurrentThread.ThreadID)) then
     begin
       fCurrentConnectionsByThread.AddOrSetValue(TThread.CurrentThread.ThreadID, lName);
     end;

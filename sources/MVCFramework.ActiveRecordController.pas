@@ -47,11 +47,13 @@ type
   TMVCActiveRecordController = class(TMVCController)
   private
     fAuthorization: TMVCActiveRecordAuthFunc;
+    fNameConnection : String;
   protected
     function GetMaxRecordCount: Integer;
     function CheckAuthorization(aClass: TMVCActiveRecordClass; aAction: TMVCActiveRecordAction): Boolean; virtual;
   public
-    constructor Create(const aConnectionFactory: TFunc<TFDConnection>; const aAuthorization: TMVCActiveRecordAuthFunc = nil); reintroduce;
+    constructor Create(const aConnectionFactory: TFunc<TFDConnection>; const aAuthorization: TMVCActiveRecordAuthFunc = nil); reintroduce; overload;
+    constructor Create(const aName:String; const aConnectionFactory: TFunc<TFDConnection>; const aAuthorization: TMVCActiveRecordAuthFunc = nil); reintroduce; overload;
     destructor Destroy; override;
 
     [MVCPath('/($entityname)')]
@@ -250,6 +252,13 @@ end;
 
 constructor TMVCActiveRecordController.Create(const aConnectionFactory: TFunc<TFDConnection>;
   const aAuthorization: TMVCActiveRecordAuthFunc = nil);
+begin
+    Create('default',aConnectionFactory, aAuthorization);
+end;
+
+constructor TMVCActiveRecordController.Create(const aName: String;
+  const aConnectionFactory: TFunc<TFDConnection>;
+  const aAuthorization: TMVCActiveRecordAuthFunc);
 var
   lConn: TFDConnection;
 begin
@@ -263,8 +272,11 @@ begin
       raise;
     end;
   end;
-  ActiveRecordConnectionsRegistry.AddConnection('default', lConn, True);
+  ActiveRecordConnectionsRegistry.AddConnection(aName, lConn, True);
   fAuthorization := aAuthorization;
+
+  fNameConnection := aName;
+
 end;
 
 procedure TMVCActiveRecordController.CreateEntity(const entityname: string);
@@ -396,7 +408,7 @@ end;
 
 destructor TMVCActiveRecordController.Destroy;
 begin
-  ActiveRecordConnectionsRegistry.RemoveConnection('default');
+  ActiveRecordConnectionsRegistry.RemoveConnection(fNameConnection);
   inherited;
 end;
 
