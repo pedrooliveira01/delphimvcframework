@@ -70,6 +70,8 @@ type
     function AsObjectList<T: class, constructor>(CloseAfterScroll: boolean = false; OwnsObjects: boolean = true)
       : TObjectList<T>;
     function AsObject<T: class, constructor>(CloseAfterScroll: boolean = false): T;
+    procedure LoadFromJSONArrayStringItems(AJSONArrayString: string;
+      AFieldNamePolicy: TFieldNamePolicy = TFieldNamePolicy.fpLowerCase);
   end;
 
   TDataSetUtils = class sealed
@@ -314,6 +316,20 @@ end;
 procedure TDataSetHelper.LoadFromJSONArrayString(AJSONArrayString: string; AFieldNamePolicy: TFieldNamePolicy);
 begin
   AppendFromJSONArrayString(AJSONArrayString, TArray<string>.Create(), AFieldNamePolicy);
+end;
+
+procedure TDataSetHelper.LoadFromJSONArrayStringItems(AJSONArrayString: string;
+  AFieldNamePolicy: TFieldNamePolicy);
+var aJson: TJSONObject;
+begin
+  aJson := TJSONObject.Create;
+  try
+    aJson.FromJSON(AJSONArrayString);
+    AJSONArrayString := aJson.A['items'].ToString;
+    AppendFromJSONArrayString(AJSONArrayString, TArray<string>.Create(), AFieldNamePolicy);
+  finally
+    aJson.Free;
+  end;
 end;
 
 procedure TDataSetHelper.AppendFromJSONArrayString(AJSONArrayString: string; AIgnoredFields: TArray<string>;

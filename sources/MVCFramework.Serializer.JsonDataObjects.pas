@@ -892,7 +892,7 @@ begin
   if AJsonObject[AName].isNull then
      lTyp := jdtNone;
 
-  case AJsonObject[AName].Typ of
+  case lTyp of//AJsonObject[AName].Typ of
     jdtNone:
       Exit;
 
